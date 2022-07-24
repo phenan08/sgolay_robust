@@ -2,7 +2,7 @@ function [y1,y2,y3] = sgolay_robust_2(y_input,x_input,half_window,order,step,opt
 
 arguments % Argument validation
     y_input         double  {mustBeNumeric,mustBeReal,mustBeVector} 
-    x_input         double  {mustBeNumeric,mustBeReal,mustBeVector}
+    x_input         double  {mustBeNumeric,mustBeReal,mustBeVector,mustBeEqualSize(y_input,x_input)}
     half_window  (1,1)   double  {mustBeNumeric,mustBeReal,mustBePositive}
     order   (1,1)   double  {mustBeNumeric,mustBeReal,mustBeGreaterThanOrEqual(order,0)}
     step    (1,1)   double  {mustBeNumeric,mustBeReal,mustBePositive}
@@ -34,14 +34,28 @@ if mod(step,1) ~= 0
     warning("Step size was rounded to nearest integer.") ;
 end
 
-% Remove NaNs
+% Ckeck for NaNs
 test = sum(isnan(y_input)) + sum(isnan(x_input)) ;
 if test > 0
     error("The data supplied contain NaNs. Aborted.") ;
     return
 end
 
-
+% Check input vector types
+test = isrow(x_input) ;
+if test == true
+    x_input_type = "row" ;
+    x_input = x_input' ;
+else
+    x_input_type = "column" ;
+end
+test = isrow(y_input) ;
+if test == true
+    y_input_type = "row" ;
+    y_input = y_input' ;
+else
+    y_input_type = "column" ;
+end
 
 % Memory preallocation
 y1 = zeros(size(x_input)) ;
@@ -57,12 +71,6 @@ for i = 1:step:N
     ind2 = min(N,i+half_window) ;
     x_spl = x_input(ind1:ind2) ;
     y_spl = y_input(ind1:ind2) ;
-
-    if isrow(x_spl)
-        x_spl = x_spl' ;
-    elseif isrow(y_spl)
-        y_spl = y_spl' ;
-    end
 
     weights = ones(size(y_spl)) ;
 
@@ -105,6 +113,14 @@ for i = 1:step:N
  
 end
 
+if y_input_type == "row"
+    y1 = y1' ;
+    y2 = y2' ;
+    x3 = y3' ;
+    x_input = x_input' ;
+    y_input = y_input' ;
+end
+
 if step == 1
     % No need for interpolation.
     return
@@ -114,9 +130,13 @@ y1 = interp1(x_input(1:step:N),y1(1:step:N),x_input,opts.Interpolation,"extrap")
 y2 = interp1(x_input(1:step:N),y2(1:step:N),x_input,opts.Interpolation,"extrap") ;
 y3 = interp1(x_input(1:step:N),y3(1:step:N,:),x_input,opts.Interpolation,"extrap") ;
 
-if isrow(y_input)
-    y1 = y1' ;
-    y2 = y2' ;
 end
 
+function mustBeEqualSize(a,b)
+    % Test for equal size
+    if ~isequal(size(a),size(b))
+        eid = 'Size:notEqual';
+        msg = 'Size of first input must equal size of second input.';
+        throwAsCaller(MException(eid,msg))
+    end
 end
